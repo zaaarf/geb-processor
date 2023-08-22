@@ -1,0 +1,26 @@
+plugins {
+    id 'java'
+    id 'com.palantir.git-version' version '0.13.0'
+}
+
+archivesBaseName = 'geb'
+version = gitVersion()
+
+java {
+    sourceCompatibility = targetCompatibility = JavaVersion.VERSION_1_8
+    withSourcesJar()
+    withJavadocJar()
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'com.squareup:javapoet:1.13.0'
+}
+
+jar {
+    from sourceSets.main.output
+    archiveFileName = "${jar.archiveBaseName.get()}-${project.version.split('-')[0]}.${jar.archiveExtension.get()}"
+}
