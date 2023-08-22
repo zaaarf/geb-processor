@@ -1,5 +1,5 @@
-# Geb!
-GEB (short for _Generative Event Bus_) is an event bus leveraging annotation processing to achieve maximum possible speed.
+# Geb! Processor
+This is the processor behind [GEB](https://github.com/zaaarf/geb)'s magic.
 
 ## The trick
 There is no trick, it's just basic metaprogramming.
@@ -8,7 +8,4 @@ Suppose that you have a simple event system, with annotated listeners receiving 
 
 That works, of course, but it's not that fast. Ah, if only you knew in advance, such as at compile time, who's going to get called with what... oh, wait, you do.
 
-GEB is just a basic event bus in itself; the actual magician is the processor, who writes into each event direct calls to all subscribers, to take as little time as possible.
-
-## What's with the name?
-"GEB Bus" kind of sounds like "Jeb Bush" and I think it's very funny. Please clap.
+The processor then writes at compile time direct calls to all subscribers into the events, to take as little time as possible.
