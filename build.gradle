@@ -14,10 +14,12 @@ java {
 
 repositories {
     mavenCentral()
+    maven { url 'https://maven.fantabos.co' }
 }
 
 dependencies {
     implementation 'com.squareup:javapoet:1.13.0'
+    implementation 'ftbsc:geb:0.1.0'
 }
 
 jar {
