@@ -5,12 +5,16 @@ import ftbsc.geb.api.IEvent;
 import ftbsc.geb.api.IEventDispatcher;
 import ftbsc.geb.api.IListener;
 import ftbsc.geb.api.annotations.Listen;
+import ftbsc.geb.exceptions.BadListenerArgumentsException;
+import ftbsc.geb.exceptions.MissingInterfaceException;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.lang.model.element.*;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.tools.Diagnostic;
 import javax.tools.FileObject;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
@@ -88,23 +92,37 @@ public class GEBProcessor extends AbstractProcessor {
 	 * @param target the {@link Element} that was annotated with {@link Listen}
 	 */
 	private void processListener(Element target) {
-		if(!(target instanceof ExecutableElement))
-			return; //TODO throw error
-
 		ExecutableElement listener = (ExecutableElement) target; //this cast will never fail
 
 		//ensure the parent is instance of IListener
 		TypeMirror parentType = listener.getEnclosingElement().asType();
 		if(!this.processingEnv.getTypeUtils().isAssignable(parentType, this.listenerInterface))
-			return; //TODO throw error, parent doesn't implement the interface
+			throw new MissingInterfaceException(
+				listener.getEnclosingElement().getSimpleName().toString(),
+				listener.getSimpleName().toString());
 
-		//ensure the listener method has only a single IEvent parameter
+		//ensure the listener method has only one parameter
 		List<? extends VariableElement> params = listener.getParameters();
 		if(listener.getParameters().size() != 1)
-			return; //TODO throw error, bad parameter amount
+			throw new BadListenerArgumentsException.Count(
+				listener.getEnclosingElement().getSimpleName().toString(),
+				listener.getSimpleName().toString(),
+				params.size());
+
+		//ensure said parameter implements IEvent
 		TypeMirror event = params.get(0).asType();
 		if(!this.processingEnv.getTypeUtils().isAssignable(event, this.eventInterface))
-			return; //TODO throw error, bad parameter type
+			throw new BadListenerArgumentsException.Type(
+				listener.getEnclosingElement().getSimpleName().toString(),
+				listener.getSimpleName().toString(),
+				params.get(0).getSimpleName().toString());
+
+		//warn about return type
+		if(!listener.getReturnType().getKind().equals(TypeKind.VOID))
+			this.processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING, String.format(
+				"The method %s::%s has a return type: please note that it will be ignored.",
+				listener.getEnclosingElement().getSimpleName().toString(),
+				listener.getSimpleName().toString()));
 
 		if(!this.listenerMap.containsKey(event))
 			this.listenerMap.put(event, new HashSet<>());
