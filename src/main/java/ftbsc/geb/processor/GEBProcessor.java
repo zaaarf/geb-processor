@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
  * GEB's {@link javax.annotation.processing.Processor annotation processor},
  * which takes care of generating the {@link IEventDispatcher dispatchers}.
  */
-@SupportedAnnotationTypes({"ftbsc.geb.api.annotations.*"})
+@SupportedAnnotationTypes("ftbsc.geb.api.annotations.Listen")
 public class GEBProcessor extends AbstractProcessor {
 
 	/**
