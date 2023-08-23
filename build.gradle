@@ -18,8 +18,8 @@ repositories {
 }
 
 dependencies {
+    implementation 'ftbsc:geb:0.1.4'
     implementation 'com.squareup:javapoet:1.13.0'
-    implementation 'ftbsc:geb:0.1.0'
 }
 
 jar {
