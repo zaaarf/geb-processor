@@ -1,6 +1,9 @@
 package ftbsc.geb.processor;
 
 import com.squareup.javapoet.*;
+import ftbsc.geb.api.IEvent;
+import ftbsc.geb.api.IEventDispatcher;
+import ftbsc.geb.api.IListener;
 import ftbsc.geb.api.annotations.Listen;
 
 import javax.annotation.processing.AbstractProcessor;
@@ -17,38 +20,77 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- *
+ * GEB's {@link javax.annotation.processing.Processor annotation processor},
+ * which takes care of generating the {@link IEventDispatcher dispatchers}.
  */
 @SupportedAnnotationTypes({"ftbsc.geb.api.annotations.*"})
 public class GEBProcessor extends AbstractProcessor {
 
+	/**
+	 * A {@link Map} tying each event class to a {@link Set} of listeners.
+	 */
 	private final Map<TypeMirror, Set<ListenerContainer>> listenerMap = new HashMap<>();
 
+	/**
+	 * A {@link Set} containing the fully-qualified names of the generated classes.
+	 */
 	private final Set<String> generatedClasses = new HashSet<>();
 
+	/**
+	 * The starting point of the processor.
+	 * It calls {@link #processListener(Element)} on all elements annotated with
+	 * the {@link Listen} annotation.
+	 * @param annotations the annotation types requested to be processed
+	 * @param env environment for information about the current and prior round
+	 * @return whether the set of annotation types are claimed by this processor
+	 */
 	@Override
-	public boolean process(Set<? extends TypeElement> set, RoundEnvironment env) {
-		for(TypeElement ann : set)
-			if(ann.getQualifiedName().contentEquals(Listen.class.getName()))
-				for(Element e : env.getElementsAnnotatedWith(ann))
+	public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment env) {
+		boolean claimed = false;
+		for(TypeElement ann : annotations) {
+			if(ann.getQualifiedName().contentEquals(Listen.class.getName())) {
+				claimed = true;
+				for(Element e : env.getElementsAnnotatedWith(ann)) {
 					this.processListener(e);
-		if(!this.listenerMap.isEmpty()) {
-			this.generateClasses();
-			this.generateServiceProvider();
-			return true;
-		} else return false;
+					if(!this.listenerMap.isEmpty()) {
+						this.generateClasses();
+						this.generateServiceProvider();
+					}
+				}
+			}
+		}
+		return claimed;
 	}
 
+	/**
+	 * A {@link TypeMirror} representing the {@link IListener} interface.
+	 */
 	private final TypeMirror listenerInterface = this.processingEnv.getElementUtils()
 		.getTypeElement("ftbsc.geb.api.IListener").asType();
 
+	/**
+	 * A {@link TypeMirror} representing the {@link IEvent} interface.
+	 */
 	private final TypeMirror eventInterface = this.processingEnv.getElementUtils()
 		.getTypeElement("ftbsc.geb.api.IEvent").asType();
 
+	/**
+	 * A {@link TypeMirror} representing the {@link IEventDispatcher} interface.
+	 */
 	private final TypeMirror dispatcherInterface = this.processingEnv.getElementUtils()
 		.getTypeElement("ftbsc.geb.api.IEventDispatcher").asType();
 
+	/**
+	 * Verifies that the annotated method is valid and, if it is, adds it to
+	 * the list. See the annotation's javadoc for details on what's considered
+	 * a valid listener.
+	 * @see Listen
+	 * @param target the {@link Element} that was annotated with {@link Listen}
+	 */
 	private void processListener(Element target) {
+		if(!(target instanceof ExecutableElement))
+			return; //TODO throw error
+
 		ExecutableElement listener = (ExecutableElement) target; //this cast will never fail
 
 		//ensure the parent is instance of IListener
@@ -69,6 +111,9 @@ public class GEBProcessor extends AbstractProcessor {
 		this.listenerMap.get(event).add(new ListenerContainer(listener));
 	}
 
+	/**
+	 * Uses JavaPoet to generate the classes dispatcher classes.
+	 */
 	private void generateClasses() {
 		this.listenerMap.forEach((event, listeners) -> {
 			TypeElement eventClass = (TypeElement) this.processingEnv.getTypeUtils().asElement(event);
@@ -131,6 +176,8 @@ public class GEBProcessor extends AbstractProcessor {
 			} catch(IOException e) {
 				throw new RuntimeException(e);
 			}
+
+			this.generatedClasses.add(resultingClassName);
 		});
 	}
 
@@ -149,11 +196,30 @@ public class GEBProcessor extends AbstractProcessor {
 		}
 	}
 
+	/**
+	 * A container class to carry information about a listener method.
+	 */
 	private static class ListenerContainer {
+		/**
+		 * The actual listener, the annotated method.
+		 */
 		public final ExecutableElement method;
+
+		/**
+		 * The parent which implements {@link IListener}.
+		 */
 		public final TypeMirror parent;
+
+		/**
+		 * The {@link Listen} annotation on the method.
+		 */
 		public final Listen annotation;
 
+		/**
+		 * The public constructor.
+		 * @param method the annotated method, assumed to be valid
+		 *               and already checked
+		 */
 		public ListenerContainer(ExecutableElement method) {
 			this.method = method;
 			this.parent = method.getEnclosingElement().asType();
