@@ -8,10 +8,8 @@ import ftbsc.geb.api.annotations.Listen;
 import ftbsc.geb.exceptions.BadListenerArgumentsException;
 import ftbsc.geb.exceptions.MissingInterfaceException;
 
-import javax.annotation.processing.AbstractProcessor;
-import javax.annotation.processing.ProcessingEnvironment;
-import javax.annotation.processing.RoundEnvironment;
-import javax.annotation.processing.SupportedAnnotationTypes;
+import javax.annotation.processing.*;
+import javax.lang.model.SourceVersion;
 import javax.lang.model.element.*;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
@@ -156,7 +154,7 @@ public class GEBProcessor extends AbstractProcessor {
 			ParameterSpec listenersParam = ParameterSpec.builder(ParameterizedTypeName.get(
 				ClassName.get("java.util", "Map"), ParameterizedTypeName.get(
 					ClassName.get("java.lang", "Class"),
-					WildcardTypeName.subtypeOf(TypeName.get(this.dispatcherInterface))),
+					WildcardTypeName.subtypeOf(TypeName.get(this.listenerInterface))),
 				ClassName.get(this.listenerInterface)), "listeners")
 				.build();
 
@@ -174,8 +172,8 @@ public class GEBProcessor extends AbstractProcessor {
 				String varName = String.format("listener%d", counter);
 				callListenersBuilder
 					.addStatement("$T $L = $N.get($T.class)", this.listenerInterface, varName, listenersParam, listener.parent)
-					.addStatement("if($L.isActive()) (($T) $L).$L($N)", varName, listener.parent, varName,
-						listener.method.getSimpleName().toString(), eventParam);
+					.addStatement("if($L.isActive()) (($T) $L).$L(($T) $N)", varName, listener.parent, varName,
+						listener.method.getSimpleName().toString(), event, eventParam);
 			}
 
 			MethodSpec eventType = MethodSpec.methodBuilder("eventType")
