@@ -9,6 +9,7 @@ import ftbsc.geb.exceptions.BadListenerArgumentsException;
 import ftbsc.geb.exceptions.MissingInterfaceException;
 
 import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.lang.model.element.*;
@@ -41,6 +42,34 @@ public class GEBProcessor extends AbstractProcessor {
 	private final Set<String> generatedClasses = new HashSet<>();
 
 	/**
+	 * A {@link TypeMirror} representing the {@link IListener} interface.
+	 */
+	private TypeMirror listenerInterface;
+
+	/**
+	 * A {@link TypeMirror} representing the {@link IEvent} interface.
+	 */
+	private TypeMirror eventInterface;
+
+	/**
+	 * A {@link TypeMirror} representing the {@link IEventDispatcher} interface.
+	 */
+	private TypeMirror dispatcherInterface;
+
+	/**
+	 * Initializes the processor with the given environment.
+	 * Also takes carae of initializing the TypeMirror "constants" for later use.
+	 * @param env the environment
+	 */
+	@Override
+	public synchronized void init(ProcessingEnvironment env) {
+		super.init(env);
+		listenerInterface = env.getElementUtils().getTypeElement("ftbsc.geb.api.IListener").asType();
+		eventInterface = env.getElementUtils().getTypeElement("ftbsc.geb.api.IEvent").asType();
+		dispatcherInterface = env.getElementUtils().getTypeElement("ftbsc.geb.api.IEventDispatcher").asType();
+	}
+
+	/**
 	 * The starting point of the processor.
 	 * It calls {@link #processListener(Element)} on all elements annotated with
 	 * the {@link Listen} annotation.
@@ -65,24 +94,6 @@ public class GEBProcessor extends AbstractProcessor {
 		}
 		return claimed;
 	}
-
-	/**
-	 * A {@link TypeMirror} representing the {@link IListener} interface.
-	 */
-	private final TypeMirror listenerInterface = this.processingEnv.getElementUtils()
-		.getTypeElement("ftbsc.geb.api.IListener").asType();
-
-	/**
-	 * A {@link TypeMirror} representing the {@link IEvent} interface.
-	 */
-	private final TypeMirror eventInterface = this.processingEnv.getElementUtils()
-		.getTypeElement("ftbsc.geb.api.IEvent").asType();
-
-	/**
-	 * A {@link TypeMirror} representing the {@link IEventDispatcher} interface.
-	 */
-	private final TypeMirror dispatcherInterface = this.processingEnv.getElementUtils()
-		.getTypeElement("ftbsc.geb.api.IEventDispatcher").asType();
 
 	/**
 	 * Verifies that the annotated method is valid and, if it is, adds it to
