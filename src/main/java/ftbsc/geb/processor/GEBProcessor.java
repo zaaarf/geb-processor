@@ -173,7 +173,7 @@ public class GEBProcessor extends AbstractProcessor {
 			for(ListenerContainer listener : ordered) {
 				String varName = String.format("listener%d", counter);
 				callListenersBuilder
-					.addStatement("$T $L = $N.get($T.class)", varName, this.listenerInterface, listenersParam, listener.parent)
+					.addStatement("$T $L = $N.get($T.class)", this.listenerInterface, varName, listenersParam, listener.parent)
 					.addStatement("if($L.isActive()) (($T) $L).$L($N)", varName, listener.parent,
 						listener.method.getSimpleName().toString(), eventParam);
 			}
