@@ -92,12 +92,11 @@ public class GEBProcessor extends AbstractProcessor {
 		for(TypeElement ann : annotations) {
 			if(ann.getQualifiedName().contentEquals(Listen.class.getName())) {
 				claimed = true;
-				for(Element e : env.getElementsAnnotatedWith(ann)) {
+				for(Element e : env.getElementsAnnotatedWith(ann))
 					this.processListener(e);
-					if(!this.listenerMap.isEmpty()) {
-						this.generateClasses();
-						this.generateServiceProvider();
-					}
+				if(!this.listenerMap.isEmpty()) {
+					this.generateClasses();
+					this.generateServiceProvider();
 				}
 			}
 		}
@@ -198,6 +197,7 @@ public class GEBProcessor extends AbstractProcessor {
 						listener.method.getSimpleName().toString(), event, eventParam);
 				if(cancelable) callListenersBuilder
 					.addStatement("if((($T) $N).isCanceled()) return true", this.cancelableEventInterface, eventParam);
+				counter++;
 			}
 
 			callListenersBuilder.addStatement("return false");
