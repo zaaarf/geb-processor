@@ -2,6 +2,7 @@ package ftbsc.geb.processor;
 
 import com.squareup.javapoet.*;
 import ftbsc.geb.api.IEvent;
+import ftbsc.geb.api.IEventCancelable;
 import ftbsc.geb.api.IEventDispatcher;
 import ftbsc.geb.api.IListener;
 import ftbsc.geb.api.annotations.Listen;
@@ -50,6 +51,11 @@ public class GEBProcessor extends AbstractProcessor {
 	private TypeMirror eventInterface;
 
 	/**
+	 * A {@link TypeMirror} representing the {@link IEventCancelable} interface.
+	 */
+	private TypeMirror cancelableEventInterface;
+
+	/**
 	 * A {@link TypeMirror} representing the {@link IEventDispatcher} interface.
 	 */
 	private TypeMirror dispatcherInterface;
@@ -62,9 +68,14 @@ public class GEBProcessor extends AbstractProcessor {
 	@Override
 	public synchronized void init(ProcessingEnvironment env) {
 		super.init(env);
-		listenerInterface = env.getElementUtils().getTypeElement("ftbsc.geb.api.IListener").asType();
-		eventInterface = env.getElementUtils().getTypeElement("ftbsc.geb.api.IEvent").asType();
-		dispatcherInterface = env.getElementUtils().getTypeElement("ftbsc.geb.api.IEventDispatcher").asType();
+		this.listenerInterface = env.getElementUtils()
+			.getTypeElement("ftbsc.geb.api.IListener").asType();
+		this.eventInterface = env.getElementUtils()
+			.getTypeElement("ftbsc.geb.api.IEvent").asType();
+		this.dispatcherInterface = env.getElementUtils()
+			.getTypeElement("ftbsc.geb.api.IEventDispatcher").asType();
+		this.cancelableEventInterface = env.getElementUtils()
+			.getTypeElement("ftbsc.geb.api.IEventCancelable").asType();
 	}
 
 	/**
@@ -154,6 +165,7 @@ public class GEBProcessor extends AbstractProcessor {
 	private void generateClasses() {
 		this.listenerMap.forEach((event, listeners) -> {
 			TypeElement eventClass = (TypeElement) this.processingEnv.getTypeUtils().asElement(event);
+			boolean cancelable = this.processingEnv.getTypeUtils().isAssignable(event, this.cancelableEventInterface);
 
 			//reorder the injectors to follow priority
 			List<ListenerContainer> ordered = listeners.stream().sorted(Comparator.comparingInt(
@@ -184,7 +196,11 @@ public class GEBProcessor extends AbstractProcessor {
 					.addStatement("$T $L = $N.get($T.class)", this.listenerInterface, varName, listenersParam, listener.parent)
 					.addStatement("if($L.isActive()) (($T) $L).$L(($T) $N)", varName, listener.parent, varName,
 						listener.method.getSimpleName().toString(), event, eventParam);
+				if(cancelable) callListenersBuilder
+					.addStatement("if((($T) $N).isCanceled()) return true", this.cancelableEventInterface, eventParam);
 			}
+
+			callListenersBuilder.addStatement("return false");
 
 			MethodSpec eventType = MethodSpec.methodBuilder("eventType")
 				.addModifiers(Modifier.PUBLIC)
@@ -206,7 +222,7 @@ public class GEBProcessor extends AbstractProcessor {
 			String resultingClassName = String.format("%s.%s", packageName, clazzName);
 
 			try {
-				JavaFileObject injectorFile = processingEnv.getFiler().createSourceFile(resultingClassName);
+				JavaFileObject injectorFile = this.processingEnv.getFiler().createSourceFile(resultingClassName);
 				PrintWriter out = new PrintWriter(injectorFile.openWriter());
 				javaFile.writeTo(out);
 				out.close();
