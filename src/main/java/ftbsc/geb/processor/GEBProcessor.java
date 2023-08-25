@@ -94,6 +94,16 @@ public class GEBProcessor extends AbstractProcessor {
 	}
 
 	/**
+	 * Sets the supported source version to the latest one.
+	 * It's either that or constant warnings, and the processor is simple enough.
+	 * @return the latest source version
+	 */
+	@Override
+	public SourceVersion getSupportedSourceVersion() {
+		return SourceVersion.latest();
+	}
+
+	/**
 	 * Verifies that the annotated method is valid and, if it is, adds it to
 	 * the list. See the annotation's javadoc for details on what's considered
 	 * a valid listener.
