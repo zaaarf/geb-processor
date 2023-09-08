@@ -4,12 +4,19 @@ plugins {
 }
 
 archivesBaseName = 'processor'
-version = gitVersion()
+version = gitVersion().split('-').getAt(0).replace('dirty', '')
 
 java {
     sourceCompatibility = targetCompatibility = JavaVersion.VERSION_1_8
     withSourcesJar()
     withJavadocJar()
+}
+
+javadoc {
+    options {
+        links 'https://geb.fantabos.co/javadoc/geb/'
+        links 'https://square.github.io/javapoet/javadoc/javapoet/'
+    }
 }
 
 repositories {
@@ -20,9 +27,4 @@ repositories {
 dependencies {
     implementation 'ftbsc:geb:0.2.0'
     implementation 'com.squareup:javapoet:1.13.0'
-}
-
-jar {
-    from sourceSets.main.output
-    archiveFileName = "${jar.archiveBaseName.get()}-${project.version.split('-')[0]}.${jar.archiveExtension.get()}"
 }
