@@ -14,7 +14,7 @@ java {
 
 javadoc {
     options {
-        links 'https://geb.fantabos.co/javadoc/geb/'
+        links 'https://docs.zaaarf.foo/geb/'
         links 'https://square.github.io/javapoet/javadoc/javapoet/'
     }
 }
