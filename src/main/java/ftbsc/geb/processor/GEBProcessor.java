@@ -153,9 +153,8 @@ public class GEBProcessor extends AbstractProcessor {
 				listener.getEnclosingElement().getSimpleName().toString(),
 				listener.getSimpleName().toString()));
 
-		if(!this.listenerMap.containsKey(event))
-			this.listenerMap.put(event, new HashSet<>());
-		this.listenerMap.get(event).add(new ListenerContainer(listener));
+		this.listenerMap.computeIfAbsent(event, k -> new HashSet<>())
+			.add(new ListenerContainer(listener));
 	}
 
 	/**
@@ -166,38 +165,66 @@ public class GEBProcessor extends AbstractProcessor {
 			TypeElement eventClass = (TypeElement) this.processingEnv.getTypeUtils().asElement(event);
 			boolean cancelable = this.processingEnv.getTypeUtils().isAssignable(event, this.cancelableEventInterface);
 
-			//reorder the injectors to follow priority
-			List<ListenerContainer> ordered = listeners.stream().sorted(Comparator.comparingInt(
-				container -> container.annotation.priority()
-			)).collect(Collectors.toList());
-
 			ParameterSpec eventParam = ParameterSpec.builder(TypeName.get(this.eventInterface), "event").build();
-			ParameterSpec listenersParam = ParameterSpec.builder(ParameterizedTypeName.get(
-				ClassName.get("java.util", "Map"), ParameterizedTypeName.get(
-					ClassName.get("java.lang", "Class"),
-					WildcardTypeName.subtypeOf(TypeName.get(this.listenerInterface))),
-				ClassName.get(this.listenerInterface)), "listeners")
-				.build();
+			ParameterSpec listenersParam = ParameterSpec.builder(
+				ParameterizedTypeName.get(
+					ClassName.get("java.util", "Map"),
+					ParameterizedTypeName.get(
+						ClassName.get("java.lang", "Class"),
+						WildcardTypeName.subtypeOf(TypeName.get(this.listenerInterface))
+					),
+					ParameterizedTypeName.get(
+						ClassName.get("java.util", "Set"),
+						ClassName.get(this.listenerInterface)
+					)
+				),
+				"listeners"
+			).build();
 
 			MethodSpec.Builder callListenersBuilder = MethodSpec.methodBuilder("callListeners")
 				.addModifiers(Modifier.PUBLIC)
 				.addAnnotation(Override.class)
-				.addAnnotation(AnnotationSpec.builder(SuppressWarnings.class) //because why not
+				.addAnnotation(AnnotationSpec.builder(SuppressWarnings.class) // because why not
 					.addMember("value" , "{$S}", "unchecked").build())
 				.addParameter(eventParam)
 				.addParameter(listenersParam)
 				.returns(boolean.class);
 
-			int counter = 0;
+			// reorder the injectors to follow priority
+			Map<TypeMirror, Integer> done = new HashMap<>();
+			List<ListenerContainer> ordered = listeners.stream().sorted(Comparator.comparingInt(
+				container -> container.annotation.priority()
+			)).collect(Collectors.toList());
+
+			// get all the relevant injectors
+			for(int i = 0; i < ordered.size(); i++) {
+				ListenerContainer listener = ordered.get(i);
+				if(!done.containsKey(listener.parent)) {
+					done.put(listener.parent, i);
+					String varName = String.format("listener%d", i);
+					callListenersBuilder.addStatement(
+						"java.util.Set<$T> $L = $N.get($T.class)",
+						this.listenerInterface,
+						varName,
+						listenersParam,
+						listener.parent
+					);
+				}
+			}
+
 			for(ListenerContainer listener : ordered) {
-				String varName = String.format("listener%d", counter);
+				String varName = String.format("listener%d", done.get(listener.parent));
 				callListenersBuilder
-					.addStatement("$T $L = $N.get($T.class)", this.listenerInterface, varName, listenersParam, listener.parent)
-					.addStatement("if($L.isActive()) (($T) $L).$L(($T) $N)", varName, listener.parent, varName,
-						listener.method.getSimpleName().toString(), event, eventParam);
+					.addStatement("for($T l : $L) {", this.listenerInterface, varName)
+					.addStatement(
+						"if(l != null) (($T) l).$L(($T) $N); }",
+						listener.parent,
+						listener.method.getSimpleName().toString(),
+						event,
+						eventParam
+				);
 				if(cancelable) callListenersBuilder
-					.addStatement("if((($T) $N).isCanceled()) return true", this.cancelableEventInterface, eventParam);
-				counter++;
+					.addStatement("if((($T) $N).isCanceled()) return false", this.cancelableEventInterface, eventParam);
 			}
 
 			callListenersBuilder.addStatement("return false");
@@ -250,7 +277,7 @@ public class GEBProcessor extends AbstractProcessor {
 	}
 
 	/**
-	 * A container class to carry information about a listener method.
+	 * A container class to carry information about a listener class.
 	 */
 	private static class ListenerContainer {
 		/**
