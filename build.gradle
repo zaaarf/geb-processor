@@ -4,7 +4,7 @@ plugins {
 }
 
 archivesBaseName = 'processor'
-version = gitVersion().split('-').getAt(0).replace('dirty', '')
+version = versionDetails().lastTag
 
 java {
     sourceCompatibility = targetCompatibility = JavaVersion.VERSION_1_8
@@ -25,6 +25,6 @@ repositories {
 }
 
 dependencies {
-    implementation 'ftbsc:geb:0.2.0'
+    implementation 'ftbsc:geb:0.3.0'
     implementation 'com.squareup:javapoet:1.13.0'
 }
