@@ -227,7 +227,7 @@ public class GEBProcessor extends AbstractProcessor {
 					.addStatement("if((($T) $N).isCanceled()) return false", this.cancelableEventInterface, eventParam);
 			}
 
-			callListenersBuilder.addStatement("return false");
+			callListenersBuilder.addStatement("return true");
 
 			MethodSpec eventType = MethodSpec.methodBuilder("eventType")
 				.addModifiers(Modifier.PUBLIC)
