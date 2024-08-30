@@ -215,9 +215,9 @@ public class GEBProcessor extends AbstractProcessor {
 			for(ListenerContainer listener : ordered) {
 				String varName = String.format("listener%d", done.get(listener.parent));
 				callListenersBuilder
-					.addStatement("for($T l : $L) {", this.listenerInterface, varName)
+					.addStatement("if($L != null) { for($T l : $L) {", varName, this.listenerInterface, varName)
 					.addStatement(
-						"if(l != null) (($T) l).$L(($T) $N); }",
+						"if(l != null) (($T) l).$L(($T) $N); } }",
 						listener.parent,
 						listener.method.getSimpleName().toString(),
 						event,
