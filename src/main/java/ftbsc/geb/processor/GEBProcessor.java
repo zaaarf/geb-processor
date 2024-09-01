@@ -56,9 +56,9 @@ public class GEBProcessor extends AbstractProcessor {
 	private TypeMirror cancelableEventInterface;
 
 	/**
-	 * A {@link TypeMirror} representing the {@link IEventDispatcher} interface.
+	 * A {@link TypeElement} representing the {@link IEventDispatcher} interface.
 	 */
-	private TypeMirror dispatcherInterface;
+	private TypeElement dispatcherInterface;
 
 	/**
 	 * Initializes the processor with the given environment.
@@ -73,7 +73,7 @@ public class GEBProcessor extends AbstractProcessor {
 		this.eventInterface = env.getElementUtils()
 			.getTypeElement("ftbsc.geb.api.IEvent").asType();
 		this.dispatcherInterface = env.getElementUtils()
-			.getTypeElement("ftbsc.geb.api.IEventDispatcher").asType();
+			.getTypeElement("ftbsc.geb.api.IEventDispatcher");
 		this.cancelableEventInterface = env.getElementUtils()
 			.getTypeElement("ftbsc.geb.api.IEventCancelable").asType();
 	}
@@ -123,14 +123,16 @@ public class GEBProcessor extends AbstractProcessor {
 	private void processListener(Element target) {
 		ExecutableElement listener = (ExecutableElement) target; //this cast will never fail
 
-		//ensure the parent is instance of IListener
-		TypeMirror parentType = listener.getEnclosingElement().asType();
-		if(!this.processingEnv.getTypeUtils().isAssignable(parentType, this.listenerInterface))
-			throw new MissingInterfaceException(
-				listener.getEnclosingElement().getSimpleName().toString(),
-				listener.getSimpleName().toString());
+		// if the method is not static, ensure the parent is an instance of IListener
+		if(!listener.getModifiers().contains(Modifier.STATIC)) {
+			TypeMirror parentType = listener.getEnclosingElement().asType();
+			if(!this.processingEnv.getTypeUtils().isAssignable(parentType, this.listenerInterface))
+				throw new MissingInterfaceException(
+					listener.getEnclosingElement().getSimpleName().toString(),
+					listener.getSimpleName().toString());
+		}
 
-		//ensure the listener method has only one parameter
+		// ensure the listener method has only one parameter
 		List<? extends VariableElement> params = listener.getParameters();
 		if(listener.getParameters().size() != 1)
 			throw new BadListenerArgumentsException.Count(
@@ -138,7 +140,7 @@ public class GEBProcessor extends AbstractProcessor {
 				listener.getSimpleName().toString(),
 				params.size());
 
-		//ensure said parameter implements IEvent
+		// ensure said parameter implements IEvent
 		TypeMirror event = params.get(0).asType();
 		if(!this.processingEnv.getTypeUtils().isAssignable(event, this.eventInterface))
 			throw new BadListenerArgumentsException.Type(
@@ -146,7 +148,7 @@ public class GEBProcessor extends AbstractProcessor {
 				listener.getSimpleName().toString(),
 				params.get(0).getSimpleName().toString());
 
-		//warn about return type
+		// warn about return type
 		if(!listener.getReturnType().getKind().equals(TypeKind.VOID))
 			this.processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING, String.format(
 				"The method %s::%s has a return type: please note that it will be ignored.",
@@ -164,8 +166,9 @@ public class GEBProcessor extends AbstractProcessor {
 		this.listenerMap.forEach((event, listeners) -> {
 			TypeElement eventClass = (TypeElement) this.processingEnv.getTypeUtils().asElement(event);
 			boolean cancelable = this.processingEnv.getTypeUtils().isAssignable(event, this.cancelableEventInterface);
+			ClassName setName = ClassName.get("java.util", "Set");
 
-			ParameterSpec eventParam = ParameterSpec.builder(TypeName.get(this.eventInterface), "event").build();
+			ParameterSpec eventParam = ParameterSpec.builder(TypeName.get(event), "event").build();
 			ParameterSpec listenersParam = ParameterSpec.builder(
 				ParameterizedTypeName.get(
 					ClassName.get("java.util", "Map"),
@@ -174,7 +177,7 @@ public class GEBProcessor extends AbstractProcessor {
 						WildcardTypeName.subtypeOf(TypeName.get(this.listenerInterface))
 					),
 					ParameterizedTypeName.get(
-						ClassName.get("java.util", "Set"),
+						setName,
 						ClassName.get(this.listenerInterface)
 					)
 				),
@@ -203,7 +206,8 @@ public class GEBProcessor extends AbstractProcessor {
 					done.put(listener.parent, i);
 					String varName = String.format("listener%d", i);
 					callListenersBuilder.addStatement(
-						"java.util.Set<$T> $L = $N.get($T.class)",
+						"$T<$T> $L = $N.get($T.class)", // Set is already imported per the parameters
+						setName,
 						this.listenerInterface,
 						varName,
 						listenersParam,
@@ -213,18 +217,28 @@ public class GEBProcessor extends AbstractProcessor {
 			}
 
 			for(ListenerContainer listener : ordered) {
-				String varName = String.format("listener%d", done.get(listener.parent));
-				callListenersBuilder
-					.addStatement("if($L != null) { for($T l : $L) {", varName, this.listenerInterface, varName)
-					.addStatement(
-						"if(l != null) (($T) l).$L(($T) $N); } }",
+				if(listener.method.getModifiers().contains(Modifier.STATIC)) {
+					// if static call it directly
+					callListenersBuilder.addStatement(
+						"$T.$L($N);",
 						listener.parent,
 						listener.method.getSimpleName().toString(),
-						event,
 						eventParam
-				);
+					);
+				} else {
+					// else iterate over its listeners
+					String varName = String.format("listener%d", done.get(listener.parent));
+					callListenersBuilder
+						.addStatement("if($L != null) { for($T l : $L) {", varName, this.listenerInterface, varName)
+						.addStatement(
+							"if(l != null) (($T) l).$L($N); } }",
+							listener.parent,
+							listener.method.getSimpleName().toString(),
+							eventParam
+						);
+				}
 				if(cancelable) callListenersBuilder
-					.addStatement("if((($T) $N).isCanceled()) return false", this.cancelableEventInterface, eventParam);
+					.addStatement("if($N.isCanceled()) return false", eventParam);
 			}
 
 			callListenersBuilder.addStatement("return true");
@@ -232,15 +246,17 @@ public class GEBProcessor extends AbstractProcessor {
 			MethodSpec eventType = MethodSpec.methodBuilder("eventType")
 				.addModifiers(Modifier.PUBLIC)
 				.addAnnotation(Override.class)
-				.returns(Class.class)
+				.returns(ParameterizedTypeName.get(ClassName.get(Class.class), TypeName.get(event)))
 				.addStatement("return $T.class", event)
 				.build();
 
 			String clazzName = String.format("%sDispatcher", eventClass.getSimpleName());
 			TypeSpec clazz = TypeSpec.classBuilder(clazzName)
 				.addModifiers(Modifier.PUBLIC)
-				.addSuperinterface(this.dispatcherInterface)
-				.addMethod(callListenersBuilder.build())
+				.addSuperinterface(ParameterizedTypeName.get(
+					ClassName.get(this.dispatcherInterface),
+					TypeName.get(event)
+				)).addMethod(callListenersBuilder.build())
 				.addMethod(eventType)
 				.build();
 
