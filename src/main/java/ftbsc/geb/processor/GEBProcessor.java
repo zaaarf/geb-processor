@@ -243,11 +243,14 @@ public class GEBProcessor extends AbstractProcessor {
 
 			callListenersBuilder.addStatement("return true");
 
+			TypeMirror erasedEvent = this.processingEnv.getTypeUtils().erasure(event);
 			MethodSpec eventType = MethodSpec.methodBuilder("eventType")
 				.addModifiers(Modifier.PUBLIC)
 				.addAnnotation(Override.class)
-				.returns(ParameterizedTypeName.get(ClassName.get(Class.class), TypeName.get(event)))
-				.addStatement("return $T.class", event)
+				.addAnnotation(AnnotationSpec.builder(SuppressWarnings.class)
+					.addMember("value" , "{$S}", "rawtypes").build())
+				.returns(ParameterizedTypeName.get(Class.class))
+				.addStatement("return $T.class", erasedEvent)
 				.build();
 
 			String clazzName = String.format("%sDispatcher", eventClass.getSimpleName());
