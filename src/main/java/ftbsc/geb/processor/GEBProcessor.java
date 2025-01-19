@@ -253,7 +253,16 @@ public class GEBProcessor extends AbstractProcessor {
 				.addStatement("return $T.class", erasedEvent)
 				.build();
 
-			String clazzName = String.format("%sDispatcher", eventClass.getSimpleName());
+			TypeElement cursor = eventClass;
+			StringBuilder realName = new StringBuilder(eventClass.getSimpleName().toString());
+			while(cursor.getEnclosingElement() instanceof TypeElement) {
+				cursor = (TypeElement) cursor.getEnclosingElement();
+				realName.insert(0, '$');
+				realName.insert(0, cursor.getSimpleName());
+			}
+
+			String clazzName = String.format("%sDispatcher", realName);
+
 			TypeSpec clazz = TypeSpec.classBuilder(clazzName)
 				.addModifiers(Modifier.PUBLIC)
 				.addSuperinterface(ParameterizedTypeName.get(
