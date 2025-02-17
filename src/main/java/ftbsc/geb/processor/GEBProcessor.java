@@ -195,9 +195,11 @@ public class GEBProcessor extends AbstractProcessor {
 
 			// reorder the injectors to follow priority
 			Map<TypeMirror, Integer> done = new HashMap<>();
-			List<ListenerContainer> ordered = listeners.stream().sorted(Comparator.comparingInt(
-				container -> container.annotation.priority()
-			)).collect(Collectors.toList());
+			List<ListenerContainer> ordered = listeners.stream().sorted(
+				Comparator.comparingInt(
+					container -> ((ListenerContainer) container).annotation.priority()
+				).reversed()
+			).collect(Collectors.toList());
 
 			// get all the relevant injectors
 			for(int i = 0; i < ordered.size(); i++) {
