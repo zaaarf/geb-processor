@@ -187,8 +187,6 @@ public class GEBProcessor extends AbstractProcessor {
 			MethodSpec.Builder callListenersBuilder = MethodSpec.methodBuilder("callListeners")
 				.addModifiers(Modifier.PUBLIC)
 				.addAnnotation(Override.class)
-				.addAnnotation(AnnotationSpec.builder(SuppressWarnings.class) // because why not
-					.addMember("value" , "{$S}", "unchecked").build())
 				.addParameter(eventParam)
 				.addParameter(listenersParam)
 				.returns(boolean.class);
@@ -249,8 +247,6 @@ public class GEBProcessor extends AbstractProcessor {
 			MethodSpec eventType = MethodSpec.methodBuilder("eventType")
 				.addModifiers(Modifier.PUBLIC)
 				.addAnnotation(Override.class)
-				.addAnnotation(AnnotationSpec.builder(SuppressWarnings.class)
-					.addMember("value" , "{$S}", "rawtypes").build())
 				.returns(ParameterizedTypeName.get(Class.class))
 				.addStatement("return $T.class", erasedEvent)
 				.build();
@@ -267,10 +263,15 @@ public class GEBProcessor extends AbstractProcessor {
 
 			TypeSpec clazz = TypeSpec.classBuilder(clazzName)
 				.addModifiers(Modifier.PUBLIC)
+				.addAnnotation(
+					AnnotationSpec.builder(SuppressWarnings.class) // prevent warning spam
+						.addMember("value" , "{$S, $S}", "unchecked", "rawtypes").build()
+				)
 				.addSuperinterface(ParameterizedTypeName.get(
 					ClassName.get(this.dispatcherInterface),
 					TypeName.get(event)
-				)).addMethod(callListenersBuilder.build())
+				))
+				.addMethod(callListenersBuilder.build())
 				.addMethod(eventType)
 				.build();
 
