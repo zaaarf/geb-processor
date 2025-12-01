@@ -1,4 +1,4 @@
-package ftbsc.geb.exceptions;
+package foo.zaaarf.geb.exceptions;
 
 /**
  * Thrown when a parent of a listener method does not implement the

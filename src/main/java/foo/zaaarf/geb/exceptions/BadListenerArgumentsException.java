@@ -1,4 +1,4 @@
-package ftbsc.geb.exceptions;
+package foo.zaaarf.geb.exceptions;
 
 /**
  * Thrown when there is something wrong with a listener method.

@@ -1,4 +1,4 @@
-package ftbsc.geb.processor;
+package foo.zaaarf.geb;
 
 import com.squareup.javapoet.*;
 import ftbsc.geb.api.IEvent;
@@ -6,8 +6,8 @@ import ftbsc.geb.api.IEventCancelable;
 import ftbsc.geb.api.IEventDispatcher;
 import ftbsc.geb.api.IListener;
 import ftbsc.geb.api.annotations.Listen;
-import ftbsc.geb.exceptions.BadListenerArgumentsException;
-import ftbsc.geb.exceptions.MissingInterfaceException;
+import foo.zaaarf.geb.exceptions.BadListenerArgumentsException;
+import foo.zaaarf.geb.exceptions.MissingInterfaceException;
 
 import javax.annotation.processing.*;
 import javax.lang.model.SourceVersion;
@@ -92,8 +92,11 @@ public class GEBProcessor extends AbstractProcessor {
 		for(TypeElement ann : annotations) {
 			if(ann.getQualifiedName().contentEquals(Listen.class.getName())) {
 				claimed = true;
-				for(Element e : env.getElementsAnnotatedWith(ann))
+
+				for(Element e : env.getElementsAnnotatedWith(ann)) {
 					this.processListener(e);
+				}
+
 				if(!this.listenerMap.isEmpty()) {
 					this.generateClasses();
 					this.generateServiceProvider();
@@ -129,31 +132,35 @@ public class GEBProcessor extends AbstractProcessor {
 			if(!this.processingEnv.getTypeUtils().isAssignable(parentType, this.listenerInterface))
 				throw new MissingInterfaceException(
 					listener.getEnclosingElement().getSimpleName().toString(),
-					listener.getSimpleName().toString());
+					listener.getSimpleName().toString()
+				);
 		}
 
 		// ensure the listener method has only one parameter
 		List<? extends VariableElement> params = listener.getParameters();
-		if(listener.getParameters().size() != 1)
+		if(listener.getParameters().size() != 1) {
 			throw new BadListenerArgumentsException.Count(
 				listener.getEnclosingElement().getSimpleName().toString(),
 				listener.getSimpleName().toString(),
 				params.size());
+		}
 
 		// ensure said parameter implements IEvent
 		TypeMirror event = params.get(0).asType();
-		if(!this.processingEnv.getTypeUtils().isAssignable(event, this.eventInterface))
+		if(!this.processingEnv.getTypeUtils().isAssignable(event, this.eventInterface)) {
 			throw new BadListenerArgumentsException.Type(
 				listener.getEnclosingElement().getSimpleName().toString(),
 				listener.getSimpleName().toString(),
 				params.get(0).getSimpleName().toString());
+		}
 
 		// warn about return type
-		if(!listener.getReturnType().getKind().equals(TypeKind.VOID))
+		if(!listener.getReturnType().getKind().equals(TypeKind.VOID)) {
 			this.processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING, String.format(
 				"The method %s::%s has a return type: please note that it will be ignored.",
 				listener.getEnclosingElement().getSimpleName().toString(),
 				listener.getSimpleName().toString()));
+			}
 
 		this.listenerMap.computeIfAbsent(event, k -> new HashSet<>())
 			.add(new ListenerContainer(listener));
@@ -237,8 +244,12 @@ public class GEBProcessor extends AbstractProcessor {
 							eventParam
 						);
 				}
-				if(cancelable) callListenersBuilder
-					.addStatement("if($N.isCanceled()) return false", eventParam);
+				if(cancelable) {
+					callListenersBuilder.addStatement(
+						"if($N.isCanceled()) return false",
+						eventParam
+					);
+				}
 			}
 
 			callListenersBuilder.addStatement("return true");
