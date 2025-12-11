@@ -28,11 +28,16 @@ import java.util.stream.Collectors;
  * GEB's {@link javax.annotation.processing.Processor annotation processor},
  * which takes care of generating the {@link IEventDispatcher dispatchers}.
  */
+@SupportedOptions(GEBProcessor.GEB_OUTPUT_PACKAGE)
 @SupportedAnnotationTypes({
 	"foo.zaaarf.geb.api.annotations.Listen",
 	"foo.zaaarf.geb.api.annotations.Inherit"
 })
 public class GEBProcessor extends AbstractProcessor {
+	/**
+	 * The constant for the option key.
+	 */
+	static final String GEB_OUTPUT_PACKAGE = "gebOutputPackage";
 
 	/**
 	 * A {@link Map} tying each event class to a {@link Set} of listeners.
@@ -319,10 +324,15 @@ public class GEBProcessor extends AbstractProcessor {
 				.addMethod(eventType)
 				.build();
 
-			// TODO: this should only be a fallback, compiler args are the preferred way
-			String packageName = this.processingEnv.getElementUtils().getPackageOf(
-				this.processingEnv.getTypeUtils().asElement(event)
-			).getQualifiedName().toString();
+			// package name if specified, or falls back on "wherever the event was"
+			// only complex environments should ever really need to specify it
+			String packageName = this.processingEnv.getOptions().get(GEB_OUTPUT_PACKAGE);
+			if(packageName == null) {
+				packageName = this.processingEnv.getElementUtils().getPackageOf(
+					this.processingEnv.getTypeUtils().asElement(event)
+				).getQualifiedName().toString();
+			}
+
 			JavaFile javaFile = JavaFile.builder(packageName, clazz).build();
 			String resultingClassName = String.format("%s.%s", packageName, clazzName);
 
