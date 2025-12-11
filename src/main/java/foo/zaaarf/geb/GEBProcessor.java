@@ -69,11 +69,6 @@ public class GEBProcessor extends AbstractProcessor {
 	 */
 	public GEBProcessor() {}
 
-	/**
-	 * Initializes the processor with the given environment.
-	 * Also takes carae of initializing the TypeMirror "constants" for later use.
-	 * @param env the environment
-	 */
 	@Override
 	public synchronized void init(ProcessingEnvironment env) {
 		super.init(env);
@@ -87,15 +82,6 @@ public class GEBProcessor extends AbstractProcessor {
 			.getTypeElement("foo.zaaarf.geb.api.IEventCancelable").asType();
 	}
 
-	/**
-	 * The starting point of the processor.
-	 * It calls {@link #processListener(ExecutableElement, Element)} on all elements
-	 * annotated with the {@link Listen} annotation, then ensures that all {@link Inherit}
-	 * classes are also processed.
-	 * @param annotations the annotation types requested to be processed
-	 * @param env environment for information about the current and prior round
-	 * @return whether the set of annotation types are claimed by this processor
-	 */
 	@Override
 	public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment env) {
 		boolean claimed = false;
@@ -113,7 +99,7 @@ public class GEBProcessor extends AbstractProcessor {
 			}
 		}
 
-		if(!this.listenerMap.isEmpty()) {
+		if(claimed && !this.listenerMap.isEmpty()) {
 			this.generateClasses();
 			this.generateServiceProvider();
 		}
@@ -140,14 +126,24 @@ public class GEBProcessor extends AbstractProcessor {
 	 * @see Listen
 	 */
 	private void processListener(ExecutableElement listener, Element parent) {
-		// if the method is not static, ensure the parent is an instance of IListener
+		// if the method is not static:
 		if(!listener.getModifiers().contains(Modifier.STATIC)) {
 			TypeMirror parentType = parent.asType();
-			if(!this.processingEnv.getTypeUtils().isAssignable(parentType, this.listenerInterface))
+
+			// ensure the parent is an instance of IListener
+			if(!this.processingEnv.getTypeUtils().isAssignable(parentType, this.listenerInterface)) {
 				throw new MissingInterfaceException(
 					parent.getSimpleName().toString(),
 					listener.getSimpleName().toString()
 				);
+			}
+
+			// ensure the parent is not abstract
+			if(parent.getModifiers().contains(Modifier.ABSTRACT)) {
+				// no need to error out, just ignore this case
+				// as it might have inheritors
+				return;
+			}
 		}
 
 		// ensure the listener method has only one parameter
@@ -192,7 +188,7 @@ public class GEBProcessor extends AbstractProcessor {
 			for(Element e : curElement.getEnclosedElements()) {
 				Listen listenAnn = e.getAnnotation(Listen.class);
 				if(listenAnn != null && !e.getModifiers().contains(Modifier.STATIC) && listenAnn.inheritable()) {
-					this.processListener((ExecutableElement) e, curElement);
+					this.processListener((ExecutableElement) e, inherited);
 				}
 			}
 
@@ -245,15 +241,17 @@ public class GEBProcessor extends AbstractProcessor {
 				ListenerContainer listener = ordered.get(i);
 				if(!done.containsKey(listener.parent)) {
 					done.put(listener.parent, i);
-					String varName = String.format("listener%d", i);
-					callListenersBuilder.addStatement(
-						"$T<$T> $L = $N.get($T.class)", // Set is already imported per the parameters
-						setName,
-						this.listenerInterface,
-						varName,
-						listenersParam,
-						listener.parent
-					);
+					if(!listener.method.getModifiers().contains(Modifier.STATIC)) {
+						String varName = String.format("listener%d", i);
+						callListenersBuilder.addStatement(
+							"$T<$T> $L = $N.get($T.class)", // Set is already imported per the parameters
+							setName,
+							this.listenerInterface,
+							varName,
+							listenersParam,
+							this.processingEnv.getTypeUtils().erasure(listener.parent)
+						);
+					}
 				}
 			}
 
@@ -273,7 +271,7 @@ public class GEBProcessor extends AbstractProcessor {
 						.addStatement("if($L != null) { for($T l : $L) {", varName, this.listenerInterface, varName)
 						.addStatement(
 							"if(l != null) (($T) l).$L($N); } }",
-							listener.parent,
+							this.processingEnv.getTypeUtils().erasure(listener.parent),
 							listener.method.getSimpleName().toString(),
 							eventParam
 						);
@@ -310,7 +308,8 @@ public class GEBProcessor extends AbstractProcessor {
 				.addModifiers(Modifier.PUBLIC)
 				.addAnnotation(
 					AnnotationSpec.builder(SuppressWarnings.class) // prevent warning spam
-						.addMember("value" , "{$S, $S}", "unchecked", "rawtypes").build()
+						.addMember("value" , "{$S, $S}", "unchecked", "rawtypes")
+						.build()
 				)
 				.addSuperinterface(ParameterizedTypeName.get(
 					ClassName.get(this.dispatcherInterface),
@@ -320,7 +319,10 @@ public class GEBProcessor extends AbstractProcessor {
 				.addMethod(eventType)
 				.build();
 
-			String packageName = "foo.zaaarf.geb.generated";
+			// TODO: this should only be a fallback, compiler args are the preferred way
+			String packageName = this.processingEnv.getElementUtils().getPackageOf(
+				this.processingEnv.getTypeUtils().asElement(event)
+			).getQualifiedName().toString();
 			JavaFile javaFile = JavaFile.builder(packageName, clazz).build();
 			String resultingClassName = String.format("%s.%s", packageName, clazzName);
 
@@ -370,15 +372,6 @@ public class GEBProcessor extends AbstractProcessor {
 		 * The {@link Listen} annotation on the method.
 		 */
 		public final Listen annotation;
-
-		/**
-		 * The public constructor.
-		 * @param method the annotated method, assumed to be valid
-		 *               and already checked
-		 */
-		public ListenerContainer(ExecutableElement method) {
-			this(method, method.getEnclosingElement().asType());
-		}
 
 		/**
 		 * The public constructor.
