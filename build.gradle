@@ -1,30 +1,76 @@
 plugins {
-    id 'java'
-    id 'com.palantir.git-version' version '0.13.0'
+	id 'java'
+	id 'com.palantir.git-version' version '0.13.0'
+	id 'com.vanniktech.maven.publish.base' version '0.35.0'
 }
 
-archivesBaseName = 'processor'
+group = 'foo.zaaarf.geb'
 version = versionDetails().lastTag
 
 java {
-    sourceCompatibility = targetCompatibility = JavaVersion.VERSION_1_8
-    withSourcesJar()
-    withJavadocJar()
+	sourceCompatibility = targetCompatibility = JavaVersion.VERSION_1_8
+	withSourcesJar()
+	withJavadocJar()
 }
 
 javadoc {
-    options {
-        links 'https://docs.zaaarf.foo/geb/'
-        links 'https://square.github.io/javapoet/javadoc/javapoet/'
-    }
+	options {
+		links 'https://docs.zaaarf.foo/geb/'
+		links 'https://square.github.io/javapoet/javadoc/javapoet/'
+	}
 }
 
-repositories {
+repositories { // TODO nuke this
     mavenCentral()
-    maven { url 'https://maven.fantabos.co' }
+    mavenLocal()
 }
 
 dependencies {
-    implementation 'ftbsc:geb:0.4.0'
-    implementation 'com.squareup:javapoet:1.13.0'
+	implementation 'foo.zaaarf.geb:core:0.4.1'
+	implementation 'com.squareup:javapoet:1.13.0'
+}
+
+publishing {
+	publications {
+		mavenJava(MavenPublication) {
+			artifact jar
+			artifact sourcesJar
+			artifact javadocJar
+		}
+	}
+}
+
+mavenPublishing {
+	publishToMavenCentral()
+	signAllPublications()
+	coordinates(project.group.toString(), 'processor', project.version.toString())
+
+	pom {
+		name = "geb-$rootProject.name"
+		description = 'The Generative Event Bus Processor'
+		inceptionYear = '2023'
+		url = 'https://zaaarf.foo/projects/geb/'
+		licenses {
+			license {
+				name = 'MIT'
+				url = 'https://opensource.org/license/mit'
+			}
+		}
+		developers {
+			developer {
+				id = 'zaaarf'
+				name = 'zaaarf'
+				email = 'me@zaaarf.foo'
+			}
+		}
+		scm {
+			url = 'https://github.com/zaaarf/geb-processor/'
+			connection = 'scm:git:git://github.com/zaaarf/geb-processor.git'
+			developerConnection = 'scm:git:ssh://git@github.com/zaaarf/geb-processor.git'
+		}
+	}
+
+	dependencies {
+		rootProject.dependencies
+	}
 }
