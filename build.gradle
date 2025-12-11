@@ -20,13 +20,12 @@ javadoc {
 	}
 }
 
-repositories { // TODO nuke this
-    mavenCentral()
-    mavenLocal()
+repositories {
+	mavenCentral()
 }
 
 dependencies {
-	implementation 'foo.zaaarf.geb:core:0.4.1'
+	implementation 'foo.zaaarf.geb:core:0.5.0'
 	implementation 'com.squareup:javapoet:1.13.0'
 }
 
@@ -68,9 +67,18 @@ mavenPublishing {
 			connection = 'scm:git:git://github.com/zaaarf/geb-processor.git'
 			developerConnection = 'scm:git:ssh://git@github.com/zaaarf/geb-processor.git'
 		}
-	}
 
-	dependencies {
-		rootProject.dependencies
+		it.withXml { // TODO: figure out how to do it wihtout this nonsense
+			def depsNode = asNode().appendNode('dependencies')
+			configurations.implementation.allDependencies.each { dep ->
+				if (dep.group && dep.version) {
+					def n = depsNode.appendNode('dependency')
+					n.appendNode('groupId', dep.group)
+					n.appendNode('artifactId', dep.name)
+					n.appendNode('version', dep.version)
+					n.appendNode('scope', 'runtime')
+				}
+			}
+		}
 	}
 }
