@@ -1,4 +1,4 @@
-package foo.zaaarf.geb.exceptions;
+package foo.zaaarf.geb.processor.exceptions;
 
 /**
  * Thrown when a parent of a listener method does not implement the

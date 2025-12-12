@@ -1,4 +1,4 @@
-package foo.zaaarf.geb;
+package foo.zaaarf.geb.processor;
 
 import com.squareup.javapoet.*;
 import foo.zaaarf.geb.api.IEvent;
@@ -7,8 +7,8 @@ import foo.zaaarf.geb.api.IEventDispatcher;
 import foo.zaaarf.geb.api.IListener;
 import foo.zaaarf.geb.api.annotations.Inherit;
 import foo.zaaarf.geb.api.annotations.Listen;
-import foo.zaaarf.geb.exceptions.BadListenerArgumentsException;
-import foo.zaaarf.geb.exceptions.MissingInterfaceException;
+import foo.zaaarf.geb.processor.exceptions.BadListenerArgumentsException;
+import foo.zaaarf.geb.processor.exceptions.MissingInterfaceException;
 
 import javax.annotation.processing.*;
 import javax.lang.model.SourceVersion;

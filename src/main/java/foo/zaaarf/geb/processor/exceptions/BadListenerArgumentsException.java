@@ -1,4 +1,4 @@
-package foo.zaaarf.geb.exceptions;
+package foo.zaaarf.geb.processor.exceptions;
 
 /**
  * Thrown when there is something wrong with a listener method.
