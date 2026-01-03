@@ -7,8 +7,6 @@ import foo.zaaarf.geb.api.IEventDispatcher;
 import foo.zaaarf.geb.api.IListener;
 import foo.zaaarf.geb.api.annotations.Inherit;
 import foo.zaaarf.geb.api.annotations.Listen;
-import foo.zaaarf.geb.processor.exceptions.BadListenerArgumentsException;
-import foo.zaaarf.geb.processor.exceptions.MissingInterfaceException;
 
 import javax.annotation.processing.*;
 import javax.lang.model.SourceVersion;
@@ -21,6 +19,7 @@ import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -137,10 +136,17 @@ public class GEBProcessor extends AbstractProcessor {
 
 			// ensure the parent is an instance of IListener
 			if(!this.processingEnv.getTypeUtils().isAssignable(parentType, this.listenerInterface)) {
-				throw new MissingInterfaceException(
-					parent.getSimpleName().toString(),
-					listener.getSimpleName().toString()
+				this.processingEnv.getMessager().printMessage(
+					Diagnostic.Kind.ERROR,
+					String.format(
+						"[GEB] The parent of %s::%s does not implement the IListener interface!",
+						parent.getSimpleName().toString(),
+						listener.getSimpleName().toString()
+					),
+					listener
 				);
+
+				return;
 			}
 
 			// ensure the parent is not abstract
@@ -154,19 +160,35 @@ public class GEBProcessor extends AbstractProcessor {
 		// ensure the listener method has only one parameter
 		List<? extends VariableElement> params = listener.getParameters();
 		if(listener.getParameters().size() != 1) {
-			throw new BadListenerArgumentsException.Count(
-				parent.getSimpleName().toString(),
-				listener.getSimpleName().toString(),
-				params.size());
+			this.processingEnv.getMessager().printMessage(
+				Diagnostic.Kind.ERROR,
+				String.format(
+					"[GEB] Method %s::%s: had %d arguments, expected 1!",
+					parent.getSimpleName().toString(),
+					listener.getSimpleName().toString(),
+					params.size()
+				),
+				listener
+			);
+
+			return;
 		}
 
 		// ensure said parameter implements IEvent
 		TypeMirror event = params.get(0).asType();
 		if(!this.processingEnv.getTypeUtils().isAssignable(event, this.eventInterface)) {
-			throw new BadListenerArgumentsException.Type(
-				parent.getSimpleName().toString(),
-				listener.getSimpleName().toString(),
-				params.get(0).getSimpleName().toString());
+			this.processingEnv.getMessager().printMessage(
+				Diagnostic.Kind.ERROR,
+				String.format(
+					"[GEB] The parameter %s of %s::%s does not implement the IEvent interface!",
+					parent.getSimpleName().toString(),
+					listener.getSimpleName().toString(),
+					params.get(0).getSimpleName().toString()
+				),
+				listener
+			);
+
+			return;
 		}
 
 		// warn about return type
@@ -174,8 +196,9 @@ public class GEBProcessor extends AbstractProcessor {
 			this.processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING, String.format(
 				"The method %s::%s has a return type: please note that it will be ignored.",
 				parent.getSimpleName().toString(),
-				listener.getSimpleName().toString()));
-			}
+				listener.getSimpleName().toString()
+			));
+		}
 
 		this.listenerMap.computeIfAbsent(event, k -> new HashSet<>())
 			.add(new ListenerContainer(listener, parent.asType()));
@@ -352,16 +375,38 @@ public class GEBProcessor extends AbstractProcessor {
 	/**
 	 * Generates the Service Provider file for the dispatchers.
 	 */
-	private void generateServiceProvider() {
+	public void generateServiceProvider() {
 		try {
-			FileObject serviceProvider = processingEnv.getFiler().createResource(StandardLocation.CLASS_OUTPUT, "",
-				"META-INF/services/foo.zaaarf.geb.api.IEventDispatcher");
+			FileObject serviceProvider = processingEnv.getFiler().createResource(
+				StandardLocation.CLASS_OUTPUT,
+				"",
+				"META-INF/services/foo.zaaarf.geb.api.IEventDispatcher"
+			);
+
 			PrintWriter out = new PrintWriter(serviceProvider.openWriter());
 			this.generatedClasses.forEach(out::println);
 			out.close();
 		} catch(IOException e) {
-			throw new RuntimeException(e);
+			this.processingEnv.getMessager().printMessage(
+				Diagnostic.Kind.ERROR,
+				String.format(
+					"[GEB] An error occurred while generating the service provider file: %s.\n%s",
+					e.getMessage(),
+					stacktraceToString(e)
+				)
+			);
 		}
+	}
+
+	/**
+	 * Puts a {@link Throwable}'s stacktrace into a string.
+	 * @param t the throwable to get the stacktrace for
+	 * @return the stacktrace as string
+	 */
+	public static String stacktraceToString(Throwable t) {
+		StringWriter sw = new StringWriter();
+		t.printStackTrace(new PrintWriter(sw));
+		return sw.toString();
 	}
 
 	/**
