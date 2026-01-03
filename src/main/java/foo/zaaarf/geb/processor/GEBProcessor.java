@@ -365,7 +365,15 @@ public class GEBProcessor extends AbstractProcessor {
 				javaFile.writeTo(out);
 				out.close();
 			} catch(IOException e) {
-				throw new RuntimeException(e);
+				this.processingEnv.getMessager().printMessage(
+					Diagnostic.Kind.ERROR,
+					String.format(
+						"[GEB] An error occurred while generating class \"%s\": %s.\n%s",
+						resultingClassName,
+						e.getMessage(),
+						stacktraceToString(e)
+					)
+				);
 			}
 
 			this.generatedClasses.add(resultingClassName);
