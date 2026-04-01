@@ -93,7 +93,11 @@ public class GEBProcessor extends AbstractProcessor {
 			if(ann.getQualifiedName().contentEquals(Listen.class.getName())) {
 				claimed = true;
 				for(Element e : env.getElementsAnnotatedWith(ann)) {
-					this.processListener((ExecutableElement) e, e.getEnclosingElement());
+					Element enclosing = e.getEnclosingElement();
+					if(enclosing.getAnnotation(Inherit.class) == null) {
+						// prevent @Inherit classes from being processed twice
+						this.processListener((ExecutableElement) e, e.getEnclosingElement());
+					}
 				}
 			} else if(ann.getQualifiedName().contentEquals(Inherit.class.getName())) {
 				claimed = true;
