@@ -294,7 +294,7 @@ public class GEBProcessor extends AbstractProcessor {
 				if(listener.method.getModifiers().contains(Modifier.STATIC)) {
 					// if static call it directly
 					callListenersBuilder.addStatement(
-						"$T.$L($N);",
+						"$T.$L($N)",
 						listener.parent,
 						listener.method.getSimpleName().toString(),
 						eventParam
@@ -303,12 +303,21 @@ public class GEBProcessor extends AbstractProcessor {
 					// else iterate over its listeners
 					String varName = String.format("listener%d", done.get(listener.parent));
 					callListenersBuilder
-						.addStatement("if($L != null) { for($T l : $L) {", varName, this.listenerInterface, varName)
-						.addStatement(
-							"if(l != null) (($T) l).$L($N); } }",
-							this.processingEnv.getTypeUtils().erasure(listener.parent),
-							listener.method.getSimpleName().toString(),
-							eventParam
+						.addCode(
+							CodeBlock.builder()
+								.add("\n")
+								.beginControlFlow("if($L != null)", varName)
+								.beginControlFlow("for($T l : $L)", this.listenerInterface, varName)
+								.addStatement(
+									"(($T) l).$L($N)",
+									this.processingEnv.getTypeUtils().erasure(listener.parent),
+									listener.method.getSimpleName().toString(),
+									eventParam
+								)
+								.endControlFlow()
+								.endControlFlow()
+								.add("\n")
+								.build()
 						);
 				}
 				if(cancelable) {
