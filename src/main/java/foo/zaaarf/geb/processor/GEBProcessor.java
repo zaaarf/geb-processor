@@ -303,6 +303,7 @@ public class GEBProcessor extends AbstractProcessor {
 				.add("\n")
 				.build();
 
+			boolean lastWasStatic = false;
 			for(ListenerContainer listener : ordered) {
 				if(listener.method.getModifiers().contains(Modifier.STATIC)) {
 					if(cancelable) {
@@ -319,6 +320,7 @@ public class GEBProcessor extends AbstractProcessor {
 							listener.method.getSimpleName().toString(),
 							eventParam
 						);
+					lastWasStatic = true;
 				} else {
 					// else iterate over its listeners
 					String varName = String.format("listener%d", done.get(listener.parent));
@@ -342,11 +344,12 @@ public class GEBProcessor extends AbstractProcessor {
 						.add("\n");
 
 					callListenersBuilder.addCode(block.build());
+					lastWasStatic = false;
 				}
 			}
 
-			if(anyNonStatic) {
-				callListenersBuilder.addStatement("\n");
+			if(lastWasStatic) {
+				callListenersBuilder.addCode("\n");
 			}
 
 			callListenersBuilder.addStatement("return true");
