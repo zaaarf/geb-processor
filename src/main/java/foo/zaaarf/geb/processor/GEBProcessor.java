@@ -272,11 +272,13 @@ public class GEBProcessor extends AbstractProcessor {
 			).collect(Collectors.toList());
 
 			// get all the relevant injectors
+			boolean anyNonStatic = false;
 			for(int i = 0; i < ordered.size(); i++) {
 				ListenerContainer listener = ordered.get(i);
 				if(!done.containsKey(listener.parent)) {
 					done.put(listener.parent, i);
 					if(!listener.method.getModifiers().contains(Modifier.STATIC)) {
+						anyNonStatic = true;
 						String varName = String.format("listener%d", i);
 						callListenersBuilder.addStatement(
 							"$T<$T> $L = $N.get($T.class)", // Set is already imported per the parameters
@@ -290,42 +292,61 @@ public class GEBProcessor extends AbstractProcessor {
 				}
 			}
 
+			if(anyNonStatic) {
+				callListenersBuilder.addCode("\n");
+			}
+
+			CodeBlock canceledCheck = CodeBlock.builder()
+				.beginControlFlow("if($N.isCanceled())", eventParam)
+				.addStatement("return false")
+				.endControlFlow()
+				.add("\n")
+				.build();
+
 			for(ListenerContainer listener : ordered) {
 				if(listener.method.getModifiers().contains(Modifier.STATIC)) {
+					if(cancelable) {
+						callListenersBuilder
+							.addCode("\n")
+							.addCode(canceledCheck);
+					}
+
 					// if static call it directly
-					callListenersBuilder.addStatement(
-						"$T.$L($N)",
-						listener.parent,
-						listener.method.getSimpleName().toString(),
-						eventParam
-					);
+					callListenersBuilder
+						.addStatement(
+							"$T.$L($N)",
+							listener.parent,
+							listener.method.getSimpleName().toString(),
+							eventParam
+						);
 				} else {
 					// else iterate over its listeners
 					String varName = String.format("listener%d", done.get(listener.parent));
-					callListenersBuilder
-						.addCode(
-							CodeBlock.builder()
-								.add("\n")
-								.beginControlFlow("if($L != null)", varName)
-								.beginControlFlow("for($T l : $L)", this.listenerInterface, varName)
-								.addStatement(
-									"(($T) l).$L($N)",
-									this.processingEnv.getTypeUtils().erasure(listener.parent),
-									listener.method.getSimpleName().toString(),
-									eventParam
-								)
-								.endControlFlow()
-								.endControlFlow()
-								.add("\n")
-								.build()
-						);
+					CodeBlock.Builder block = CodeBlock.builder()
+						.beginControlFlow("if($L != null)", varName)
+						.beginControlFlow("for($T l : $L)", this.listenerInterface, varName);
+
+					if(cancelable) {
+						block.add(canceledCheck);
+					}
+
+					block
+						.addStatement(
+							"(($T) l).$L($N)",
+							this.processingEnv.getTypeUtils().erasure(listener.parent),
+							listener.method.getSimpleName().toString(),
+							eventParam
+						)
+						.endControlFlow()
+						.endControlFlow()
+						.add("\n");
+
+					callListenersBuilder.addCode(block.build());
 				}
-				if(cancelable) {
-					callListenersBuilder.addStatement(
-						"if($N.isCanceled()) return false",
-						eventParam
-					);
-				}
+			}
+
+			if(anyNonStatic) {
+				callListenersBuilder.addStatement("\n");
 			}
 
 			callListenersBuilder.addStatement("return true");
