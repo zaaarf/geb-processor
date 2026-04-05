@@ -144,8 +144,8 @@ public class GEBProcessor extends AbstractProcessor {
 					Diagnostic.Kind.ERROR,
 					String.format(
 						"[GEB] The parent of %s::%s does not implement the IListener interface!",
-						parent.getSimpleName().toString(),
-						listener.getSimpleName().toString()
+						parent.getSimpleName(),
+						listener.getSimpleName()
 					),
 					listener
 				);
@@ -168,8 +168,8 @@ public class GEBProcessor extends AbstractProcessor {
 				Diagnostic.Kind.ERROR,
 				String.format(
 					"[GEB] Method %s::%s: had %d arguments, expected 1!",
-					parent.getSimpleName().toString(),
-					listener.getSimpleName().toString(),
+					parent.getSimpleName(),
+					listener.getSimpleName(),
 					params.size()
 				),
 				listener
@@ -185,9 +185,9 @@ public class GEBProcessor extends AbstractProcessor {
 				Diagnostic.Kind.ERROR,
 				String.format(
 					"[GEB] The parameter %s of %s::%s does not implement the IEvent interface!",
-					parent.getSimpleName().toString(),
-					listener.getSimpleName().toString(),
-					params.get(0).getSimpleName().toString()
+					parent.getSimpleName(),
+					listener.getSimpleName(),
+					params.get(0).getSimpleName()
 				),
 				listener
 			);
@@ -199,8 +199,8 @@ public class GEBProcessor extends AbstractProcessor {
 		if(!listener.getReturnType().getKind().equals(TypeKind.VOID)) {
 			this.processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING, String.format(
 				"The method %s::%s has a return type: please note that it will be ignored.",
-				parent.getSimpleName().toString(),
-				listener.getSimpleName().toString()
+				parent.getSimpleName(),
+				listener.getSimpleName()
 			));
 		}
 
@@ -219,7 +219,10 @@ public class GEBProcessor extends AbstractProcessor {
 
 			for(Element e : curElement.getEnclosedElements()) {
 				Listen listenAnn = e.getAnnotation(Listen.class);
-				if(listenAnn != null && !e.getModifiers().contains(Modifier.STATIC) && listenAnn.inheritable()) {
+				if(listenAnn != null && (curElement == inherited || (
+						!e.getModifiers().contains(Modifier.STATIC)
+						&& listenAnn.inheritable()
+				))) {
 					this.processListener((ExecutableElement) e, inherited);
 				}
 			}
