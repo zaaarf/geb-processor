@@ -27,16 +27,22 @@ import java.util.stream.Collectors;
  * GEB's {@link javax.annotation.processing.Processor annotation processor},
  * which takes care of generating the {@link IEventDispatcher dispatchers}.
  */
-@SupportedOptions(GEBProcessor.GEB_OUTPUT_PACKAGE)
+@SupportedOptions({GEBProcessor.GEB_OUTPUT_PACKAGE, GEBProcessor.GEB_API_PACKAGE})
 @SupportedAnnotationTypes({
 	"foo.zaaarf.geb.api.annotations.Listen",
 	"foo.zaaarf.geb.api.annotations.Inherit"
 })
 public class GEBProcessor extends AbstractProcessor {
 	/**
-	 * The constant for the option key.
+	 * The constant for the output package option key.
 	 */
 	static final String GEB_OUTPUT_PACKAGE = "gebOutputPackage";
+
+	/**
+	 * The constant for the library package option key.
+	 * Note: the class needs to be made available in annotation processing environment!
+	 */
+	static final String GEB_API_PACKAGE = "gebAPIPackage";
 
 	/**
 	 * A {@link Map} tying each event class to a {@link Set} of listeners.
@@ -76,14 +82,17 @@ public class GEBProcessor extends AbstractProcessor {
 	@Override
 	public synchronized void init(ProcessingEnvironment env) {
 		super.init(env);
+
+		String gebPackage = this.processingEnv.getOptions()
+			.getOrDefault(GEB_API_PACKAGE, "foo.zaaarf.geb.api");
 		this.listenerInterface = env.getElementUtils()
-			.getTypeElement("foo.zaaarf.geb.api.IListener").asType();
+			.getTypeElement(gebPackage + ".IListener").asType();
 		this.eventInterface = env.getElementUtils()
-			.getTypeElement("foo.zaaarf.geb.api.IEvent").asType();
+			.getTypeElement(gebPackage + ".IEvent").asType();
 		this.dispatcherInterface = env.getElementUtils()
-			.getTypeElement("foo.zaaarf.geb.api.IEventDispatcher");
+			.getTypeElement(gebPackage + ".IEventDispatcher");
 		this.cancelableEventInterface = env.getElementUtils()
-			.getTypeElement("foo.zaaarf.geb.api.IEventCancelable").asType();
+			.getTypeElement(gebPackage + ".IEventCancelable").asType();
 	}
 
 	@Override
