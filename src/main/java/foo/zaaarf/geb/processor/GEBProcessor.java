@@ -70,6 +70,11 @@ public class GEBProcessor extends AbstractProcessor {
 	private TypeMirror cancelableEventInterface;
 
 	/**
+	 * The fully-qualified name to the dispatcher interface.
+	 */
+	private String dispatcherInterfaceFQN;
+
+	/**
 	 * A {@link TypeElement} representing the {@link IEventDispatcher} interface.
 	 */
 	private TypeElement dispatcherInterface;
@@ -89,10 +94,10 @@ public class GEBProcessor extends AbstractProcessor {
 			.getTypeElement(gebPackage + ".IListener").asType();
 		this.eventInterface = env.getElementUtils()
 			.getTypeElement(gebPackage + ".IEvent").asType();
-		this.dispatcherInterface = env.getElementUtils()
-			.getTypeElement(gebPackage + ".IEventDispatcher");
 		this.cancelableEventInterface = env.getElementUtils()
 			.getTypeElement(gebPackage + ".IEventCancelable").asType();
+		this.dispatcherInterfaceFQN = gebPackage + ".IEventDispatcher";
+		this.dispatcherInterface = env.getElementUtils().getTypeElement(this.dispatcherInterfaceFQN);
 	}
 
 	@Override
@@ -437,7 +442,7 @@ public class GEBProcessor extends AbstractProcessor {
 			FileObject serviceProvider = processingEnv.getFiler().createResource(
 				StandardLocation.CLASS_OUTPUT,
 				"",
-				"META-INF/services/foo.zaaarf.geb.api.IEventDispatcher"
+				"META-INF/services/" + this.dispatcherInterfaceFQN
 			);
 
 			PrintWriter out = new PrintWriter(serviceProvider.openWriter());
