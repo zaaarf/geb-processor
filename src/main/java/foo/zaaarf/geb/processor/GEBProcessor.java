@@ -343,20 +343,21 @@ public class GEBProcessor extends AbstractProcessor {
 						.beginControlFlow("if($L != null)", varName)
 						.beginControlFlow("for($T l : $L)", this.listenerInterface, varName);
 
-					block
-						.addStatement(
-							"(($T) l).$L($N)",
-							this.processingEnv.getTypeUtils().erasure(listener.parent),
-							listener.method.getSimpleName().toString(),
-							eventParam
-						)
-						.endControlFlow()
-						.endControlFlow()
-						.add("\n");
+					block.addStatement(
+						"(($T) l).$L($N)",
+						this.processingEnv.getTypeUtils().erasure(listener.parent),
+						listener.method.getSimpleName().toString(),
+						eventParam
+					);
 
 					if(cancelable) {
 						block.add(canceledCheck);
 					}
+
+					block
+						.endControlFlow()
+						.endControlFlow()
+						.add("\n");
 
 					callListenersBuilder.addCode(block.build());
 					lastWasStatic = false;
