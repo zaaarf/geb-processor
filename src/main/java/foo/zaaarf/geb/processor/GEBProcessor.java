@@ -314,10 +314,8 @@ public class GEBProcessor extends AbstractProcessor {
 				.beginControlFlow("if($N.isCanceled())", eventParam)
 				.addStatement("return false")
 				.endControlFlow()
-				.add("\n")
 				.build();
 
-			boolean lastWasStatic = false;
 			for(ListenerContainer listener : ordered) {
 				if(listener.method.getModifiers().contains(Modifier.STATIC)) {
 					// if static call it directly
@@ -331,11 +329,8 @@ public class GEBProcessor extends AbstractProcessor {
 
 					if(cancelable) {
 						callListenersBuilder
-							.addCode("\n")
 							.addCode(canceledCheck);
 					}
-
-					lastWasStatic = true;
 				} else {
 					// else iterate over its listeners
 					String varName = String.format("listener%d", done.get(listener.parent));
@@ -356,15 +351,11 @@ public class GEBProcessor extends AbstractProcessor {
 
 					block
 						.endControlFlow()
-						.endControlFlow()
-						.add("\n");
+						.endControlFlow();
 
 					callListenersBuilder.addCode(block.build());
-					lastWasStatic = false;
 				}
-			}
 
-			if(lastWasStatic) {
 				callListenersBuilder.addCode("\n");
 			}
 
