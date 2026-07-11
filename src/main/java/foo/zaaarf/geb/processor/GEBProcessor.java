@@ -110,7 +110,7 @@ public class GEBProcessor extends AbstractProcessor {
 					Element enclosing = e.getEnclosingElement();
 					if(enclosing.getAnnotation(Inherit.class) == null) {
 						// prevent @Inherit classes from being processed twice
-						this.processListener((ExecutableElement) e, e.getEnclosingElement());
+						this.processListener(e.getEnclosingElement(), (ExecutableElement) e);
 					}
 				}
 			} else if(ann.getQualifiedName().contentEquals(Inherit.class.getName())) {
@@ -143,11 +143,11 @@ public class GEBProcessor extends AbstractProcessor {
 	 * Verifies that the annotated method is valid and, if it is, adds it to
 	 * the list. See the annotation's javadoc for details on what's considered
 	 * a valid listener.
-	 * @param listener the {@link ExecutableElement} that was annotated with {@link Listen}
 	 * @param parent the {@link Element} to treat as parent of ths method
+	 * @param listener the {@link ExecutableElement} that was annotated with {@link Listen}
 	 * @see Listen
 	 */
-	private void processListener(ExecutableElement listener, Element parent) {
+	private void processListener(Element parent, ExecutableElement listener) {
 		// if the method is not static:
 		if(!listener.getModifiers().contains(Modifier.STATIC)) {
 			TypeMirror parentType = parent.asType();
@@ -227,21 +227,29 @@ public class GEBProcessor extends AbstractProcessor {
 	 * @param inherited the class annotated with {@link Inherit}
 	 */
 	private void processInheritance(TypeElement inherited) {
+		Set<TypeElement> types = new HashSet<>();
+
 		TypeMirror cur = inherited.asType();
 		while(cur.getKind() == TypeKind.DECLARED) {
 			TypeElement curElement = (TypeElement) this.processingEnv.getTypeUtils().asElement(cur);
+			types.add(curElement);
+			curElement.getInterfaces().forEach(
+				m -> types.add((TypeElement) this.processingEnv.getTypeUtils().asElement(m))
+			);
 
+			cur = curElement.getSuperclass();
+		}
+
+		for(TypeElement curElement : types) {
 			for(Element e : curElement.getEnclosedElements()) {
 				Listen listenAnn = e.getAnnotation(Listen.class);
 				if(listenAnn != null && (curElement == inherited || (
-						!e.getModifiers().contains(Modifier.STATIC)
+					!e.getModifiers().contains(Modifier.STATIC)
 						&& listenAnn.inheritable()
 				))) {
-					this.processListener((ExecutableElement) e, inherited);
+					this.processListener(inherited, (ExecutableElement) e);
 				}
 			}
-
-			cur = curElement.getSuperclass();
 		}
 	}
 
